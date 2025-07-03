@@ -3,14 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Heart, Trophy, X, Lightbulb, BookOpen, CheckCircle, Star, Target, Award, Play } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
-import { QuizQuestion } from '../../types';
+import { lessonService } from '../../services/lessonService';
+import LoadingSpinner from '../Layout/LoadingSpinner';
+import ErrorBoundary from '../Layout/ErrorBoundary';
 
 export default function LessonInterface() {
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
-  const { lessons, gameState, completeLesson, loseHeart } = useGame();
+  const { gameState, completeLesson, loseHeart } = useGame();
   
-  const lesson = lessons.find(l => l.id === lessonId);
+  const [lesson, setLesson] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [showQuiz, setShowQuiz] = useState(false);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -19,24 +23,78 @@ export default function LessonInterface() {
   const [hearts, setHearts] = useState(gameState.currentHearts);
   const [earnedPoints, setEarnedPoints] = useState(0);
 
-  if (!lesson) {
+  // Load lesson data
+  React.useEffect(() => {
+    if (lessonId) {
+      loadLesson();
+    }
+  }, [lessonId]);
+
+  const loadLesson = async () => {
+    if (!lessonId) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const lessonData = await lessonService.getLessonById(lessonId);
+      if (lessonData) {
+        setLesson(lessonData);
+      } else {
+        setError('Lesson not found');
+      }
+    } catch (err) {
+      console.error('Error loading lesson:', err);
+      setError('Failed to load lesson. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-        <div className="text-center bg-white rounded-2xl p-8 shadow-xl">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Lesson not found</h2>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            Return to Dashboard
-          </button>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-accent-50">
+        <LoadingSpinner message="Loading lesson..." size="lg" />
+      </div>
+    );
+  }
+
+  if (error || !lesson) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-accent-50">
+        <div className="text-center bg-white rounded-2xl p-8 shadow-xl max-w-md">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            {error || 'Lesson not found'}
+          </h2>
+          <div className="space-y-4">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              Return to Dashboard
+            </button>
+            {error && (
+              <button
+                onClick={loadLesson}
+                className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors ml-3"
+              >
+                Try Again
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
   // Generate 5+ pages of content for each lesson
-  const lessonPages = [
+  const lessonPages = lesson.content_sections?.length > 0 ? lesson.content_sections.map((section: any, index: number) => ({
+    type: section.type || 'text',
+    title: section.title,
+    content: section.content,
+    icon: getIconForSection(section.type, index),
+    interactive: true
+  })) : [
     {
       type: 'intro',
       title: `Welcome to ${lesson.title}`,
@@ -81,6 +139,21 @@ export default function LessonInterface() {
     }
   ];
 
+  function getIconForSection(type: string, index: number) {
+    switch (type) {
+      case 'tip': return <Lightbulb className="h-12 w-12" />;
+      case 'example': return <Target className="h-12 w-12" />;
+      case 'interactive': return <Play className="h-12 w-12" />;
+      default: 
+        const icons = [
+          <BookOpen className="h-12 w-12" />,
+          <Star className="h-12 w-12" />,
+          <Award className="h-12 w-12" />
+        ];
+        return icons[index % icons.length];
+    }
+  }
+
   const handleNext = () => {
     if (currentPage < lessonPages.length - 1) {
       setCurrentPage(currentPage + 1);
@@ -103,7 +176,7 @@ export default function LessonInterface() {
   const handleSubmitAnswer = () => {
     if (selectedAnswer === null) return;
     
-    const question = lesson.quiz[0];
+    const question = lesson.quiz_questions[0];
     const correct = selectedAnswer === question.correctAnswer;
     setIsCorrect(correct);
     setShowResult(true);
@@ -393,11 +466,11 @@ export default function LessonInterface() {
                 <div>
                   <div className="mb-6">
                     <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                      {lesson.quiz[0].question}
+                      {lesson.quiz_questions[0]?.question || 'Knowledge Check Question'}
                     </h3>
                     
                     <div className="space-y-3">
-                      {lesson.quiz[0].options.map((option, index) => (
+                      {(lesson.quiz_questions[0]?.options || []).map((option: string, index: number) => (
                         <motion.button
                           key={index}
                           whileHover={{ scale: 1.01 }}
@@ -442,7 +515,7 @@ export default function LessonInterface() {
                     <div className="text-green-600 mb-6">
                       <Trophy className="h-16 w-16 mx-auto mb-4" />
                       <h3 className="text-2xl font-bold mb-2">Excellent!</h3>
-                      <p className="text-lg mb-4">{lesson.quiz[0].explanation}</p>
+                      <p className="text-lg mb-4">{lesson.quiz_questions[0]?.explanation || 'Great job!'}</p>
                       <div className="bg-green-50 rounded-lg p-4 mb-4">
                         <p className="text-green-800 font-semibold">🎉 Bonus: +50 points for correct answer!</p>
                       </div>
@@ -451,7 +524,7 @@ export default function LessonInterface() {
                     <div className="text-red-600 mb-6">
                       <X className="h-16 w-16 mx-auto mb-4" />
                       <h3 className="text-2xl font-bold mb-2">Not quite right</h3>
-                      <p className="text-lg">{lesson.quiz[0].explanation}</p>
+                      <p className="text-lg">{lesson.quiz_questions[0]?.explanation || 'Try again!'}</p>
                       {hearts <= 0 && (
                         <p className="text-red-700 font-semibold mt-4">
                           You're out of hearts! Returning to dashboard...
@@ -467,7 +540,7 @@ export default function LessonInterface() {
                       onClick={handleComplete}
                       className={`bg-gradient-to-r ${getCategoryColor()} text-white px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition-opacity`}
                     >
-                      Complete Lesson (+{lesson.xpReward + earnedPoints} XP Total)
+                      Complete Lesson (+{lesson.xp_reward + earnedPoints} XP Total)
                     </motion.button>
                   )}
                 </motion.div>
