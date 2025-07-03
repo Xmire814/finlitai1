@@ -91,6 +91,110 @@ export interface Database {
           updated_at?: string
         }
       }
+      lessons: {
+        Row: {
+          id: string
+          title: string
+          description: string
+          category: string
+          difficulty: string
+          estimated_time: number
+          order_index: number
+          content_sections: any[]
+          quiz_questions: any[]
+          xp_reward: number
+          is_published: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description: string
+          category: string
+          difficulty: string
+          estimated_time?: number
+          order_index: number
+          content_sections?: any[]
+          quiz_questions?: any[]
+          xp_reward?: number
+          is_published?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string
+          category?: string
+          difficulty?: string
+          estimated_time?: number
+          order_index?: number
+          content_sections?: any[]
+          quiz_questions?: any[]
+          xp_reward?: number
+          is_published?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      board_configurations: {
+        Row: {
+          id: string
+          category: string
+          position: number
+          tile_type: string
+          lesson_id: string | null
+          title: string
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          category: string
+          position: number
+          tile_type: string
+          lesson_id?: string | null
+          title: string
+          description?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          category?: string
+          position?: number
+          tile_type?: string
+          lesson_id?: string | null
+          title?: string
+          description?: string | null
+          created_at?: string
+        }
+      }
+      lesson_interactions: {
+        Row: {
+          id: string
+          user_id: string
+          lesson_id: string
+          rating: number | null
+          comment: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          lesson_id: string
+          rating?: number | null
+          comment?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          lesson_id?: string
+          rating?: number | null
+          comment?: string | null
+          created_at?: string
+        }
+      }
     }
   }
-}

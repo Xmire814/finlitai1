@@ -1,18 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { GameState, Lesson, FinanceCategory, BoardTile, TileType } from '../types';
+import { GameState, FinanceCategory, BoardTile, TileType } from '../types';
 import { useAuth } from './AuthContext';
+import { lessonService, LessonData, BoardTileData } from '../services/lessonService';
 
 interface GameContextType {
   gameState: GameState;
-  lessons: Lesson[];
+  lessons: LessonData[];
   boardTiles: { [category: string]: BoardTile[] };
+  loading: boolean;
+  error: string | null;
   updateGameState: (updates: Partial<GameState>) => void;
   completeLesson: (lessonId: string) => void;
   loseHeart: () => void;
   restoreHearts: () => void;
-  getLessonsByCategory: (category: FinanceCategory) => Lesson[];
+  getLessonsByCategory: (category: FinanceCategory) => LessonData[];
   getBoardByCategory: (category: FinanceCategory) => BoardTile[];
   movePlayer: (category: FinanceCategory, steps: number) => void;
+  refreshData: () => Promise<void>;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -27,6 +31,8 @@ export function useGame() {
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const { user, updateProfile } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [gameState, setGameState] = useState<GameState>({
     currentHearts: 3,
     maxHearts: 3,
@@ -36,8 +42,128 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     playerPosition: { spending: 0, investing: 0, saving: 0 },
   });
 
-  const [lessons] = useState<Lesson[]>(generateComprehensiveLessons());
-  const [boardTiles, setBoardTiles] = useState<{ [category: string]: BoardTile[] }>(generateBoardTiles(lessons));
+  const [lessons, setLessons] = useState<LessonData[]>([]);
+  const [boardTiles, setBoardTiles] = useState<{ [category: string]: BoardTile[] }>({});
+
+  // Load initial data from Supabase
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  const loadInitialData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Load lessons and board configurations for all categories
+      const categories: FinanceCategory[] = ['spending', 'investing', 'saving'];
+      const allLessons: LessonData[] = [];
+      const allBoardTiles: { [category: string]: BoardTile[] } = {};
+
+      await Promise.all(categories.map(async (category) => {
+        try {
+          // Fetch lessons for this category
+          const categoryLessons = await lessonService.getLessonsByCategory(category);
+          allLessons.push(...categoryLessons);
+
+          // Fetch board configuration for this category
+          const boardConfig = await lessonService.getBoardConfiguration(category);
+          
+          // Convert board configuration to BoardTile format
+          const boardTiles = await Promise.all(boardConfig.map(async (config) => {
+            const tile: BoardTile = {
+              id: config.id,
+              position: config.position,
+              type: config.tile_type as TileType,
+              title: config.title,
+              description: config.description || undefined,
+              lesson: config.lesson ? convertLessonData(config.lesson) : undefined,
+              isCompleted: false, // Will be updated based on user progress
+              isLocked: config.tile_type === 'lesson' && config.position > 1, // First lesson unlocked
+              category,
+            };
+            return tile;
+          }));
+
+          allBoardTiles[category] = boardTiles;
+        } catch (categoryError) {
+          console.error(`Error loading ${category} data:`, categoryError);
+          // Continue with other categories even if one fails
+        }
+      }));
+
+      setLessons(allLessons);
+      setBoardTiles(allBoardTiles);
+      
+      // Load user progress if user is logged in
+      if (user) {
+        await loadUserProgress();
+      }
+    } catch (err) {
+      console.error('Error loading initial data:', err);
+      setError('Failed to load lesson data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadUserProgress = async () => {
+    if (!user) return;
+
+    const categories: FinanceCategory[] = ['spending', 'investing', 'saving'];
+    const updatedPosition = { ...gameState.playerPosition };
+
+    await Promise.all(categories.map(async (category) => {
+      try {
+        const progress = await lessonService.getUserProgress(user.id, category);
+        if (progress) {
+          updatedPosition[category] = progress.position;
+          
+          // Update board tiles based on user progress
+          setBoardTiles(prev => {
+            const categoryTiles = prev[category] || [];
+            const updatedTiles = categoryTiles.map(tile => ({
+              ...tile,
+              isCompleted: progress.lessons_completed.includes(tile.lesson?.id || ''),
+              isLocked: tile.type === 'lesson' && tile.position > progress.position + 1
+            }));
+            
+            return {
+              ...prev,
+              [category]: updatedTiles
+            };
+          });
+        }
+      } catch (error) {
+        console.error(`Error loading progress for ${category}:`, error);
+      }
+    }));
+
+    setGameState(prev => ({
+      ...prev,
+      playerPosition: updatedPosition
+    }));
+  };
+
+  const convertLessonData = (lessonData: any) => {
+    return {
+      id: lessonData.id,
+      title: lessonData.title,
+      description: lessonData.description,
+      category: lessonData.category,
+      difficulty: lessonData.difficulty,
+      position: lessonData.order_index,
+      boardPosition: lessonData.order_index,
+      isCompleted: false, // Will be updated based on user progress
+      isLocked: lessonData.order_index > 1,
+      xpReward: lessonData.xp_reward,
+      content: {
+        sections: lessonData.content_sections || []
+      },
+      quiz: lessonData.quiz_questions || [],
+      tileType: 'lesson' as TileType
+    };
+  };
 
   useEffect(() => {
     if (user) {
@@ -47,7 +173,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         streak: user.streak,
         xp: user.xp,
         level: user.level,
-        playerPosition: { spending: 0, investing: 0, saving: 0 },
+        playerPosition: gameState.playerPosition, // Keep existing positions
       });
     }
   }, [user]);
@@ -67,9 +193,33 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const completeLesson = (lessonId: string) => {
     const lesson = lessons.find(l => l.id === lessonId);
     if (lesson && user) {
-      const newXp = gameState.xp + lesson.xpReward;
+      const newXp = gameState.xp + lesson.xp_reward;
       const newLevel = Math.floor(newXp / 1000) + 1;
       const newStreak = gameState.streak + 1;
+      
+      // Update user progress in Supabase
+      const updateProgress = async () => {
+        try {
+          const currentProgress = await lessonService.getUserProgress(user.id, lesson.category);
+          const completedLessons = currentProgress?.lessons_completed || [];
+          
+          if (!completedLessons.includes(lessonId)) {
+            completedLessons.push(lessonId);
+            const newPosition = Math.min((currentProgress?.position || 0) + 1, 39);
+            
+            await lessonService.updateUserProgress(
+              user.id,
+              lesson.category,
+              newPosition,
+              completedLessons
+            );
+          }
+        } catch (error) {
+          console.error('Error updating progress:', error);
+        }
+      };
+      
+      updateProgress();
       
       // Update board tiles to mark lesson as completed and unlock next lesson
       setBoardTiles(prev => {
@@ -145,11 +295,17 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     updateGameState({ playerPosition: newPosition });
   };
 
+  const refreshData = async () => {
+    await loadInitialData();
+  };
+
   return (
     <GameContext.Provider value={{
       gameState,
       lessons,
       boardTiles,
+      loading,
+      error,
       updateGameState,
       completeLesson,
       loseHeart,
@@ -157,194 +313,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       getLessonsByCategory,
       getBoardByCategory,
       movePlayer,
+      refreshData,
     }}>
       {children}
     </GameContext.Provider>
   );
-}
-
-function generateComprehensiveLessons(): Lesson[] {
-  const categories: FinanceCategory[] = ['spending', 'investing', 'saving'];
-  const lessons: Lesson[] = [];
-
-  const lessonTemplates = {
-    spending: [
-      { title: "Budget Basics", description: "Learn to create and manage your first budget" },
-      { title: "Needs vs Wants", description: "Distinguish between essential and optional expenses" },
-      { title: "Smart Shopping", description: "Get more value for your money with smart shopping strategies" },
-      { title: "Subscription Audit", description: "Cancel unused subscriptions and save money" },
-      { title: "Meal Planning", description: "Save money on food expenses with planning" },
-      { title: "Transportation Costs", description: "Optimize your commute and travel expenses" },
-      { title: "Housing Decisions", description: "Make smart rent vs buy decisions" },
-      { title: "Insurance Basics", description: "Protect yourself financially with proper coverage" },
-      { title: "Utility Bills", description: "Reduce monthly utility costs effectively" },
-      { title: "Entertainment Budget", description: "Have fun without breaking the bank" },
-      { title: "Clothing Budget", description: "Dress well on a budget" },
-      { title: "Gift Giving", description: "Give thoughtful gifts within your means" },
-      { title: "Emergency Expenses", description: "Handle unexpected costs without debt" },
-      { title: "Seasonal Spending", description: "Plan for holiday and seasonal expenses" },
-      { title: "Impulse Control", description: "Overcome impulse buying habits" }
-    ],
-    investing: [
-      { title: "Investment Basics", description: "Start your wealth building journey" },
-      { title: "Stock Market 101", description: "Understand how the stock market works" },
-      { title: "Index Funds", description: "Diversify with low-cost index funds" },
-      { title: "Risk Tolerance", description: "Find your investment comfort zone" },
-      { title: "Dollar Cost Averaging", description: "Invest consistently over time" },
-      { title: "Retirement Accounts", description: "401k and IRA investment strategies" },
-      { title: "Compound Interest", description: "Harness the power of compound growth" },
-      { title: "Asset Allocation", description: "Balance your investment portfolio" },
-      { title: "Real Estate Investing", description: "Property investment fundamentals" },
-      { title: "Bond Investments", description: "Fixed income securities explained" },
-      { title: "Market Volatility", description: "Stay calm during market fluctuations" },
-      { title: "Investment Fees", description: "Minimize costs to maximize returns" },
-      { title: "Tax-Advantaged Accounts", description: "Maximize tax benefits in investing" },
-      { title: "Rebalancing", description: "Maintain your target asset allocation" },
-      { title: "Long-term Strategy", description: "Build wealth over decades" }
-    ],
-    saving: [
-      { title: "Savings Goals", description: "Set and achieve specific financial targets" },
-      { title: "High-Yield Accounts", description: "Maximize your savings interest earnings" },
-      { title: "Automatic Savings", description: "Pay yourself first with automation" },
-      { title: "Emergency Fund", description: "Build 3-6 months of expenses saved" },
-      { title: "Vacation Fund", description: "Save for your dream vacation" },
-      { title: "Down Payment", description: "Save for a home purchase" },
-      { title: "Sinking Funds", description: "Save for known future expenses" },
-      { title: "CD Laddering", description: "Maximize interest with certificate deposits" },
-      { title: "Money Market", description: "Higher yield savings account options" },
-      { title: "Savings Challenges", description: "Fun ways to boost your savings" },
-      { title: "Round-Up Savings", description: "Save your spare change automatically" },
-      { title: "Cashback Rewards", description: "Earn money while you spend" },
-      { title: "Savings Rate", description: "Track and improve your savings percentage" },
-      { title: "Financial Milestones", description: "Celebrate your savings achievements" },
-      { title: "Retirement Savings", description: "Save for your golden years" }
-    ]
-  };
-
-  categories.forEach((category, categoryIndex) => {
-    const categoryLessons = lessonTemplates[category];
-    
-    categoryLessons.forEach((lessonTemplate, lessonIndex) => {
-      const lesson: Lesson = {
-        id: `${category}-${lessonIndex + 1}`,
-        title: lessonTemplate.title,
-        description: lessonTemplate.description,
-        category,
-        difficulty: lessonIndex < 5 ? 'beginner' : lessonIndex < 10 ? 'intermediate' : 'advanced',
-        position: categoryIndex * 30 + lessonIndex + 1,
-        boardPosition: lessonIndex,
-        isCompleted: false,
-        isLocked: lessonIndex > 0, // Only first lesson is unlocked
-        xpReward: 100 + (lessonIndex * 10),
-        content: {
-          sections: [
-            {
-              id: `${category}-${lessonIndex + 1}-section-1`,
-              type: 'text',
-              title: `${lessonTemplate.title} Fundamentals`,
-              content: `This lesson covers the essential concepts of ${lessonTemplate.title.toLowerCase()} that will help you master this important aspect of personal finance.`,
-            },
-            {
-              id: `${category}-${lessonIndex + 1}-section-2`,
-              type: 'tip',
-              title: 'Key Tips',
-              content: `Here are the most important strategies for ${lessonTemplate.title.toLowerCase()}:`,
-              tips: [
-                'Start with small, manageable steps',
-                'Be consistent with your approach',
-                'Track your progress regularly',
-                'Adjust your strategy as needed'
-              ]
-            }
-          ],
-        },
-        quiz: [
-          {
-            id: `${category}-${lessonIndex + 1}-q1`,
-            question: `What is the most important principle of ${lessonTemplate.title.toLowerCase()}?`,
-            options: ['Planning ahead', 'Taking action', 'Understanding the fundamentals', 'All of the above'],
-            correctAnswer: 3,
-            explanation: `Success in ${lessonTemplate.title.toLowerCase()} requires understanding fundamentals, planning ahead, and taking consistent action.`,
-          },
-        ],
-        tileType: 'lesson',
-      };
-      lessons.push(lesson);
-    });
-  });
-
-  return lessons;
-}
-
-function generateBoardTiles(lessons: Lesson[]): { [category: string]: BoardTile[] } {
-  const categories: FinanceCategory[] = ['spending', 'investing', 'saving'];
-  const boardTiles: { [category: string]: BoardTile[] } = {};
-
-  categories.forEach(category => {
-    const tiles: BoardTile[] = [];
-    const categoryLessons = lessons.filter(l => l.category === category);
-
-    // Create 40 tiles for Monopoly-style board following the exact layout requested
-    for (let i = 0; i < 40; i++) {
-      let tileType: TileType = 'lesson';
-      let title = '';
-      let description = '';
-      let lesson: Lesson | undefined;
-
-      // Corner spaces (positions 0, 10, 20, 30)
-      if (i === 0) {
-        tileType = 'corner';
-        title = 'START';
-        description = 'Begin your financial journey here!';
-      } else if (i === 10) {
-        tileType = 'corner';
-        title = 'MILESTONE';
-        description = 'Quarter way through your journey!';
-      } else if (i === 20) {
-        tileType = 'corner';
-        title = 'HALFWAY';
-        description = 'You\'re halfway to mastery!';
-      } else if (i === 30) {
-        tileType = 'corner';
-        title = 'ALMOST THERE';
-        description = 'Nearly completed your journey!';
-      }
-      // Special tiles (chance and community)
-      else if ([2, 7, 17, 22, 33, 36].includes(i)) {
-        tileType = i % 2 === 0 ? 'community' : 'chance';
-        title = tileType === 'chance' ? 'FINANCIAL TIP' : 'COMMUNITY CHEST';
-        description = tileType === 'chance' ? 'Draw a financial wisdom card' : 'Learn from community experiences';
-      }
-      // Lesson tiles
-      else {
-        // Distribute lessons evenly across the board
-        const lessonIndex = Math.floor((i - 1) / 1.3); // Adjust distribution
-        const categoryLesson = categoryLessons[lessonIndex % categoryLessons.length];
-        if (categoryLesson) {
-          lesson = categoryLesson;
-          title = categoryLesson.title;
-          description = categoryLesson.description;
-        } else {
-          title = `${category.charAt(0).toUpperCase() + category.slice(1)} Lesson ${i}`;
-          description = `Learn essential ${category} skills`;
-        }
-      }
-
-      tiles.push({
-        id: `${category}-tile-${i}`,
-        position: i,
-        type: tileType,
-        title,
-        description,
-        lesson,
-        isCompleted: false,
-        isLocked: tileType === 'lesson' && i > 1, // First lesson tile is unlocked
-        category,
-      });
-    }
-
-    boardTiles[category] = tiles;
-  });
-
-  return boardTiles;
 }
