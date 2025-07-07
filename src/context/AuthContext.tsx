@@ -93,6 +93,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 
+      // Admin credentials for testing
+      if (email === 'admin@finlitai.com' && password === 'AdminTest123!') {
+        const adminUser: User = {
+          id: 'admin-user-id',
+          email: 'admin@finlitai.com',
+          name: 'Admin User',
+          level: 10,
+          xp: 10000,
+          streak: 100,
+          hearts: 3,
+          totalLessonsCompleted: 50,
+          achievements: [
+            {
+              id: 'admin-achievement',
+              name: 'Admin Access',
+              description: 'Full platform access',
+              icon: '👑',
+              unlockedAt: new Date().toISOString(),
+              category: 'special'
+            }
+          ],
+          createdAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString(),
+        };
+        
+        localStorage.setItem('finlit_user', JSON.stringify(adminUser));
+        setUser(adminUser);
+        return;
+      }
+
       // Check credentials
       const existingUsers = JSON.parse(localStorage.getItem('finlit_users') || '[]');
       const foundUser = existingUsers.find((u: any) => u.email === email && u.password === password);

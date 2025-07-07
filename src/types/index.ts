@@ -24,6 +24,13 @@ export interface Achievement {
 
 export type AchievementCategory = 'lessons' | 'streak' | 'xp' | 'special';
 
+export interface Message {
+  id: string;
+  content: string;
+  isBot: boolean;
+  timestamp: Date;
+}
+
 export interface Lesson {
   id: string;
   title: string;
