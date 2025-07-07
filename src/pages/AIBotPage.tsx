@@ -1,53 +1,52 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Bot, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Layout/Header';
 
 export default function AIBotPage() {
+  // State to track if the chatbase script has finished loading
+  const [isChatbaseLoaded, setChatbaseLoaded] = useState(false);
+
   useEffect(() => {
-    // Initialize Chatbase with your specific configuration
-    (function(){
-      if(!window.chatbase||window.chatbase("getState")!=="initialized"){
-        window.chatbase=(...args)=>{
-          if(!window.chatbase.q){
-            window.chatbase.q=[]
-          }
-          window.chatbase.q.push(args)
-        };
-        window.chatbase=new Proxy(window.chatbase,{
-          get(target,prop){
-            if(prop==="q"){
-              return target.q
-            }
-            return(...params)=>target(prop,...params)
-          }
-        })
-      }
+    // This configuration object tells the script which chatbot to load.
+    // The script will look for this global variable.
+    window.chatbaseConfig = {
+      chatbotId: "CTWS47NM3u2POJw7dQqID",
+    };
+
+    // Check if the script already exists to avoid adding it multiple times
+    if (!document.getElementById('chatbase-embed-script')) {
+      const script = document.createElement("script");
+      script.src = "https://www.chatbase.co/embed.min.js";
+      script.id = "chatbase-embed-script";
+      script.defer = true;
       
-      const onLoad=function(){
-        const script=document.createElement("script");
-        script.src="https://www.chatbase.co/embed.min.js";
-        script.id="CTWS47NM3u2POJw7dQqID";
-        script.domain="www.chatbase.co";
-        document.body.appendChild(script)
+      // When the script successfully loads, update the state
+      script.onload = () => {
+        setChatbaseLoaded(true);
       };
       
-      if(document.readyState==="complete"){
-        onLoad()
-      }else{
-        window.addEventListener("load",onLoad)
-      }
-    })();
+      document.body.appendChild(script);
+    } else {
+      // If script is already there, assume it's loaded or will load
+      setChatbaseLoaded(true);
+    }
 
-    // Cleanup function
+    // Cleanup function to remove the script and config when the component unmounts
     return () => {
-      const existingScript = document.getElementById("CTWS47NM3u2POJw7dQqID");
+      const existingScript = document.getElementById("chatbase-embed-script");
       if (existingScript) {
         existingScript.remove();
       }
+      // Remove the chatbot UI created by Chatbase
+      const chatbaseBot = document.getElementById("chatbasebot");
+      if(chatbaseBot) {
+        chatbaseBot.remove();
+      }
+      delete window.chatbaseConfig;
     };
-  }, []);
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
@@ -80,24 +79,13 @@ export default function AIBotPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl shadow-xl p-8 min-h-[600px]"
+          // This container will hold the chat widget. Chatbase creates an iframe.
+          // Setting a specific height is crucial for the iframe to be visible.
+          className="bg-white rounded-2xl shadow-xl p-8 min-h-[600px] flex flex-col"
         >
-          <div className="flex items-center justify-center mb-6">
-            <div className="flex items-center space-x-3">
-              <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-3 rounded-full">
-                <Bot className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h3 className="font-bold text-lg text-gray-900">FINLIT AI Coach</h3>
-                <p className="text-sm text-gray-600">Powered by advanced AI technology</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Chatbase will inject the chat interface here */}
-          <div id="chatbase-container" className="min-h-[400px]">
-            {/* Loading state while Chatbase initializes */}
-            <div className="flex items-center justify-center py-12">
+          {/* We only show the loading spinner if the chatbase script hasn't loaded yet */}
+          {!isChatbaseLoaded && (
+            <div className="flex-grow flex items-center justify-center">
               <div className="text-center">
                 <motion.div
                   animate={{ rotate: 360 }}
@@ -107,75 +95,15 @@ export default function AIBotPage() {
                 <p className="text-gray-600">Loading your AI financial coach...</p>
               </div>
             </div>
-          </div>
-
-          {/* Quick Start Guide */}
-          <div className="mt-8 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-6">
-            <h4 className="font-semibold text-gray-900 mb-4">💡 Quick Start Guide</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="space-y-2">
-                <h5 className="font-medium text-gray-800">Popular Topics:</h5>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• "Help me create my first budget"</li>
-                  <li>• "How should I start investing?"</li>
-                  <li>• "What's the best way to pay off debt?"</li>
-                  <li>• "How much should I save for emergencies?"</li>
-                </ul>
-              </div>
-              <div className="space-y-2">
-                <h5 className="font-medium text-gray-800">Advanced Questions:</h5>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• "Should I buy or lease a car?"</li>
-                  <li>• "How do I plan for retirement?"</li>
-                  <li>• "What insurance do I need?"</li>
-                  <li>• "How can I improve my credit score?"</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+          )}
+          
+          {/* This div is the target for the Chatbase iframe. 
+              The script will automatically find window.chatbaseConfig and inject the bot.
+              It needs to be present in the DOM for the chatbot to appear.
+              When `isChatbaseLoaded` is true, the loading spinner above is removed, 
+              allowing the chatbot iframe to be visible and interactive.
+           */}
         </motion.div>
-
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white rounded-xl shadow-lg p-6 text-center"
-          >
-            <div className="bg-purple-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
-              <MessageCircle className="h-6 w-6 text-purple-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">24/7 Availability</h3>
-            <p className="text-gray-600 text-sm">Get financial guidance whenever you need it, day or night.</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-white rounded-xl shadow-lg p-6 text-center"
-          >
-            <div className="bg-blue-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Bot className="h-6 w-6 text-blue-600" />
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Personalized Advice</h3>
-            <p className="text-gray-600 text-sm">Receive tailored recommendations based on your unique situation.</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="bg-white rounded-xl shadow-lg p-6 text-center"
-          >
-            <div className="bg-green-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-green-600 text-xl">🎯</span>
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Expert Knowledge</h3>
-            <p className="text-gray-600 text-sm">Access comprehensive financial expertise in an easy-to-understand format.</p>
-          </motion.div>
-        </div>
       </div>
     </div>
   );
