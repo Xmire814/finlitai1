@@ -10,6 +10,7 @@ import SavingPage from './pages/SavingPage';
 import ProfilePage from './pages/ProfilePage';
 import AIBotPage from './pages/AIBotPage';
 import LessonInterface from './components/Lesson/LessonInterface';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -34,6 +35,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={user ? <Navigate to="/dashboard" /> : <LandingPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
         path="/dashboard"
         element={

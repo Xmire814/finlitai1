@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
   user: User | null;
@@ -21,48 +22,68 @@ export function useAuth() {
   return context;
 }
 
-// Check if Supabase is properly configured
-const isSupabaseConfigured = () => {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  return supabaseUrl && supabaseKey && supabaseUrl !== 'your_supabase_project_url_here';
-};
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session in localStorage
-    const savedUser = localStorage.getItem('finlit_user');
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-      } catch (error) {
-        console.error('Error parsing saved user data:', error);
-        localStorage.removeItem('finlit_user');
+    // Listen for Supabase auth state changes
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.full_name || '',
+          level: 1,
+          xp: 0,
+          streak: 0,
+          hearts: 3,
+          totalLessonsCompleted: 0,
+          achievements: [],
+          createdAt: session.user.created_at,
+          lastLoginAt: new Date().toISOString(),
+        });
+      } else {
+        setUser(null);
       }
-    }
-    setLoading(false);
+    });
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.full_name || '',
+          level: 1,
+          xp: 0,
+          streak: 0,
+          hearts: 3,
+          totalLessonsCompleted: 0,
+          achievements: [],
+          createdAt: session.user.created_at,
+          lastLoginAt: new Date().toISOString(),
+        });
+      }
+      setLoading(false);
+    });
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Check if user already exists
-      const existingUsers = JSON.parse(localStorage.getItem('finlit_users') || '[]');
-      if (existingUsers.find((u: any) => u.email === email)) {
-        throw new Error('An account with this email already exists');
-      }
-
-      // Create new user
-      const newUser: User = {
-        id: crypto.randomUUID(),
+      const { data, error } = await supabase.auth.signUp({
         email,
+        password,
+        options: { data: { full_name: fullName } }
+      });
+      if (error) throw error;
+      // User will need to confirm email
+      setUser(data.user ? {
+        id: data.user.id,
+        email: data.user.email || '',
         name: fullName,
         level: 1,
         xp: 0,
@@ -70,16 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hearts: 3,
         totalLessonsCompleted: 0,
         achievements: [],
-        createdAt: new Date().toISOString(),
+        createdAt: data.user.created_at,
         lastLoginAt: new Date().toISOString(),
-      };
-
-      // Save to localStorage
-      existingUsers.push({ ...newUser, password }); // In real app, never store passwords in plain text
-      localStorage.setItem('finlit_users', JSON.stringify(existingUsers));
-      localStorage.setItem('finlit_user', JSON.stringify(newUser));
-      
-      setUser(newUser);
+      } : null);
     } catch (error: any) {
       throw new Error(error.message || 'Failed to create account');
     } finally {
@@ -90,64 +104,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Admin credentials for testing
-      if (email === 'admin@finlitai.com' && password === 'AdminTest123!') {
-        const adminUser: User = {
-          id: 'admin-user-id',
-          email: 'admin@finlitai.com',
-          name: 'Admin User',
-          level: 10,
-          xp: 10000,
-          streak: 100,
-          hearts: 3,
-          totalLessonsCompleted: 50,
-          achievements: [
-            {
-              id: 'admin-achievement',
-              name: 'Admin Access',
-              description: 'Full platform access',
-              icon: '👑',
-              unlockedAt: new Date().toISOString(),
-              category: 'special'
-            }
-          ],
-          createdAt: new Date().toISOString(),
-          lastLoginAt: new Date().toISOString(),
-        };
-        
-        localStorage.setItem('finlit_user', JSON.stringify(adminUser));
-        setUser(adminUser);
-        return;
-      }
-
-      // Check credentials
-      const existingUsers = JSON.parse(localStorage.getItem('finlit_users') || '[]');
-      const foundUser = existingUsers.find((u: any) => u.email === email && u.password === password);
-      
-      if (!foundUser) {
-        throw new Error('Invalid email or password');
-      }
-
-      // Create user object without password
-      const userData: User = {
-        id: foundUser.id,
-        email: foundUser.email,
-        name: foundUser.name,
-        level: foundUser.level || 1,
-        xp: foundUser.xp || 0,
-        streak: foundUser.streak || 0,
-        hearts: foundUser.hearts || 3,
-        totalLessonsCompleted: foundUser.totalLessonsCompleted || 0,
-        achievements: foundUser.achievements || [],
-        createdAt: foundUser.createdAt,
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      setUser(data.user ? {
+        id: data.user.id,
+        email: data.user.email || '',
+        name: data.user.user_metadata?.full_name || '',
+        level: 1,
+        xp: 0,
+        streak: 0,
+        hearts: 3,
+        totalLessonsCompleted: 0,
+        achievements: [],
+        createdAt: data.user.created_at,
         lastLoginAt: new Date().toISOString(),
-      };
-
-      localStorage.setItem('finlit_user', JSON.stringify(userData));
-      setUser(userData);
+      } : null);
     } catch (error: any) {
       throw new Error(error.message || 'Failed to sign in');
     } finally {
@@ -158,10 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     setLoading(true);
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      localStorage.removeItem('finlit_user');
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       setUser(null);
     } catch (error: any) {
       throw new Error(error.message || 'Failed to sign out');
@@ -176,17 +145,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const updatedUser = { ...user, ...updates };
       
-      // Update in localStorage
-      localStorage.setItem('finlit_user', JSON.stringify(updatedUser));
-      
-      // Update in users array
-      const existingUsers = JSON.parse(localStorage.getItem('finlit_users') || '[]');
-      const userIndex = existingUsers.findIndex((u: any) => u.id === user.id);
-      if (userIndex !== -1) {
-        existingUsers[userIndex] = { ...existingUsers[userIndex], ...updates };
-        localStorage.setItem('finlit_users', JSON.stringify(existingUsers));
-      }
-      
+      // Update in Supabase
+      const { error } = await supabase.auth.updateUser({
+        ...updates,
+        // Ensure we don't overwrite important fields
+        user_metadata: { ...user.user_metadata, ...updates },
+      });
+      if (error) throw error;
+
+      // Update in local state
       setUser(updatedUser);
     } catch (error: any) {
       throw new Error(error.message || 'Failed to update profile');
@@ -199,12 +166,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Check if user exists
-      const existingUsers = JSON.parse(localStorage.getItem('finlit_users') || '[]');
-      const foundUser = existingUsers.find((u: any) => u.email === email);
-      
-      if (!foundUser) {
-        throw new Error('No account found with this email address');
-      }
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
 
       // In a real app, this would send an email
       console.log('Password reset email would be sent to:', email);
