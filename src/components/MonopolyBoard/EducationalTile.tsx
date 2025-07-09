@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Lock, CheckCircle, Star } from 'lucide-react';
 
 interface BoardTile {
   id: string;
@@ -18,19 +17,11 @@ interface BoardTile {
 interface EducationalTileProps {
   tile: BoardTile;
   isPlayerHere: boolean;
-  position: 'top' | 'right' | 'bottom' | 'left';
   onTileClick: () => void;
 }
 
-export default function EducationalTile({ tile, isPlayerHere, position, onTileClick }: EducationalTileProps) {
-  const getRotationClass = () => {
-    switch (position) {
-      case 'top': return 'rotate-180';
-      case 'right': return '-rotate-90';
-      case 'left': return 'rotate-90';
-      default: return '';
-    }
-  };
+export default function EducationalTile({ tile, isPlayerHere, onTileClick }: EducationalTileProps) {
+  const getRotationClass = () => '';
 
   const getTileSize = () => {
     return 'w-16 h-16';

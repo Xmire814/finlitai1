@@ -80,11 +80,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         options: { data: { full_name: fullName } }
       });
       if (error) throw error;
-      // User will need to confirm email
       setUser(data.user ? {
         id: data.user.id,
         email: data.user.email || '',
-        name: fullName,
+        name: data.user.user_metadata?.full_name || '',
         level: 1,
         xp: 0,
         streak: 0,
@@ -153,18 +152,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = async (updates: Partial<User>) => {
     if (!user) return;
-    
     try {
       const updatedUser = { ...user, ...updates };
-      
       // Update in Supabase
       const { error } = await supabase.auth.updateUser({
         ...updates,
-        // Ensure we don't overwrite important fields
-        user_metadata: { ...user.user_metadata, ...updates },
       });
       if (error) throw error;
-
       // Update in local state
       setUser(updatedUser);
     } catch (error: unknown) {
@@ -180,11 +174,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
       // Check if user exists
       const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) throw error;
-
       // In a real app, this would send an email
       console.log('Password reset email would be sent to:', email);
     } catch (error: unknown) {
@@ -196,7 +188,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     loading,
     signUp,

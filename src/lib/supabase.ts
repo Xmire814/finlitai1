@@ -100,8 +100,8 @@ export interface Database {
           difficulty: string
           estimated_time: number
           order_index: number
-          content_sections: any[]
-          quiz_questions: any[]
+          content_sections: unknown[]
+          quiz_questions: unknown[]
           xp_reward: number
           is_published: boolean
           created_at: string
@@ -115,8 +115,8 @@ export interface Database {
           difficulty: string
           estimated_time?: number
           order_index: number
-          content_sections?: any[]
-          quiz_questions?: any[]
+          content_sections?: unknown[]
+          quiz_questions?: unknown[]
           xp_reward?: number
           is_published?: boolean
           created_at?: string
@@ -130,8 +130,8 @@ export interface Database {
           difficulty?: string
           estimated_time?: number
           order_index?: number
-          content_sections?: any[]
-          quiz_questions?: any[]
+          content_sections?: unknown[]
+          quiz_questions?: unknown[]
           xp_reward?: number
           is_published?: boolean
           created_at?: string

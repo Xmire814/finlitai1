@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { User, Calendar, Award, TrendingUp, Heart, Flame } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -63,7 +62,7 @@ export default function ProfilePage() {
           transition={{ delay: 0.1 }}
           className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
         >
-          {stats.map((stat, index) => (
+          {stats.map((stat) => (
             <div key={stat.label} className="bg-white rounded-xl shadow-lg p-6 text-center">
               <stat.icon className={`h-8 w-8 mx-auto mb-2 ${stat.color}`} />
               <div className="text-2xl font-bold text-gray-900 mb-1">{stat.value}</div>

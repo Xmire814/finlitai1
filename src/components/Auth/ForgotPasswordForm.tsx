@@ -27,8 +27,12 @@ export default function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) 
     try {
       await resetPassword(email);
       setSuccess(true);
-    } catch (err: any) {
-      setError(err.message || 'Failed to send reset email');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || 'Failed to send reset email');
+      } else {
+        setError('Failed to send reset email');
+      }
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { GameState, FinanceCategory, BoardTile, TileType } from '../types';
 import { useAuth } from './AuthContext';
-import { lessonService, LessonData, BoardTileData } from '../services/lessonService';
+import { lessonService, LessonData } from '../services/lessonService';
 
 interface GameContextType {
   gameState: GameState;
@@ -69,17 +69,24 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           // Fetch board configuration for this category
           const boardConfig = await lessonService.getBoardConfiguration(category);
           
+          // Find the first lesson tile position for this category
+          const lessonPositions = boardConfig.filter(cfg => cfg.tile_type === 'lesson').map(cfg => cfg.position);
+          const minLessonPosition = Math.min(...lessonPositions);
           // Convert board configuration to BoardTile format
           const boardTiles = await Promise.all(boardConfig.map(async (config) => {
+            let lessonObj = undefined;
+            if (config.tile_type === 'lesson' && config.lesson_id) {
+              lessonObj = categoryLessons.find(l => l.id === config.lesson_id);
+            }
             const tile: BoardTile = {
               id: config.id,
               position: config.position,
               type: config.tile_type as TileType,
               title: config.title,
               description: config.description || undefined,
-              lesson: config.lesson ? convertLessonData(config.lesson) : undefined,
+              lesson: lessonObj ? convertLessonData(lessonObj) : undefined,
               isCompleted: false, // Will be updated based on user progress
-              isLocked: config.tile_type === 'lesson' && config.position > 1, // First lesson unlocked
+              isLocked: config.tile_type === 'lesson' && config.position !== minLessonPosition, // Only the first lesson tile is unlocked
               category,
             };
             return tile;
@@ -145,7 +152,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
-  const convertLessonData = (lessonData: any) => {
+  const convertLessonData = (lessonData: Record<string, unknown>) => {
     return {
       id: lessonData.id,
       title: lessonData.title,
@@ -175,8 +182,20 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         level: user.level,
         playerPosition: gameState.playerPosition, // Keep existing positions
       });
+      loadInitialData();
     }
-  }, [user]);
+  }, [user, loadInitialData]);
+
+  useEffect(() => {
+    // Update the player's position on the board when gameState.playerPosition changes
+    setGameState(prev => ({
+      ...prev,
+      playerPosition: {
+        ...prev.playerPosition,
+        ...gameState.playerPosition,
+      }
+    }));
+  }, [gameState.playerPosition]);
 
   const updateGameState = (updates: Partial<GameState>) => {
     setGameState(prev => ({ ...prev, ...updates }));
@@ -201,11 +220,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const updateProgress = async () => {
         try {
           const currentProgress = await lessonService.getUserProgress(user.id, lesson.category);
-          const completedLessons = currentProgress?.lessons_completed || [];
+          const completedLessons = (currentProgress && typeof currentProgress === 'object' && 'lessons_completed' in currentProgress)
+            ? (currentProgress as { lessons_completed: string[] }).lessons_completed
+            : [];
           
           if (!completedLessons.includes(lessonId)) {
             completedLessons.push(lessonId);
-            const newPosition = Math.min((currentProgress?.position || 0) + 1, 39);
+            const newPosition = (currentProgress && typeof currentProgress === 'object' && 'position' in currentProgress)
+              ? Math.min((currentProgress as { position: number }).position + 1, 39)
+              : 0;
             
             await lessonService.updateUserProgress(
               user.id,

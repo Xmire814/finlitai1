@@ -1,15 +1,13 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { FinanceCategory } from '../../types';
 
 interface PlayerPieceProps {
   position: number;
   category: FinanceCategory;
-  totalTiles: number;
   isMoving?: boolean;
 }
 
-export default function PlayerPiece({ position, category, totalTiles, isMoving = false }: PlayerPieceProps) {
+export default function PlayerPiece({ position, category, isMoving = false }: PlayerPieceProps) {
   const getPositionCoordinates = (pos: number) => {
     const boardSize = 900;
     const tileSize = 70;

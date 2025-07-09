@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Brain, Users, Trophy, Star, BookOpen, Target, Zap, Shield, TrendingUp } from 'lucide-react';
+import { Brain, Trophy, Target, Zap, Shield, TrendingUp } from 'lucide-react';
 import LoginForm from '../components/Auth/LoginForm';
 import RegisterForm from '../components/Auth/RegisterForm';
 import ForgotPasswordForm from '../components/Auth/ForgotPasswordForm';

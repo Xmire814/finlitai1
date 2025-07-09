@@ -64,9 +64,13 @@ export default function RegisterForm({ onToggleMode }: RegisterFormProps) {
     try {
       await signUp(email, password, name);
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Registration error:', err);
-      setError(err.message || 'Failed to create account');
+      if (err instanceof Error) {
+        setError(err.message || 'Failed to create account');
+      } else {
+        setError('Failed to create account');
+      }
     }
   };
 

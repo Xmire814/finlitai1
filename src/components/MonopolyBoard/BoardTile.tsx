@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Play, Lock, CheckCircle, Gift, Users, Star, Zap, Home, Car, Plane, Crown, DollarSign, TrendingUp, Lightbulb, CreditCard, PiggyBank, BookOpen } from 'lucide-react';
+import { Play, Lock, CheckCircle, Users, Star, Zap, Home, Car, Crown, TrendingUp, Lightbulb, CreditCard, PiggyBank, BookOpen } from 'lucide-react';
 import { BoardTile, FinanceCategory } from '../../types';
 
 interface BoardTileProps {
@@ -57,16 +57,9 @@ export default function BoardTileComponent({ tile, isPlayerHere, category, posit
     return colorGroups[category] || 'bg-gradient-to-br from-white to-gray-100 border-2 border-gray-300 shadow-sm';
   };
 
-  const getRotationClass = () => {
-    switch (position) {
-      case 'top': return 'rotate-180';
-      case 'right': return '-rotate-90';
-      case 'left': return 'rotate-90';
-      default: return '';
-    }
-  };
+  const getRotationClass = () => '';
 
-  const isCorner = [0, 9, 19, 30].includes(tile.position);
+  const isCorner = [0, 10, 20, 30].includes(tile.position);
   
   const getTileSize = () => {
     if (isCorner) return 'w-20 h-20'; // Larger corner tiles
@@ -85,6 +78,20 @@ export default function BoardTileComponent({ tile, isPlayerHere, category, posit
   };
 
   const isClickable = tile.type === 'lesson' || tile.type === 'chance' || tile.type === 'community';
+
+  // Helper to get the display number for the tile (Monopoly style: bottom-left is 1, then clockwise)
+  const getDisplayNumber = () => {
+    // 0–9: bottom row, left to right (1–10)
+    // 10–19: right column, bottom to top (11–20)
+    // 20–29: top row, right to left (21–30)
+    // 30–39: left column, top to bottom (31–40)
+    const N = 10;
+    const pos = tile.position;
+    if (pos <= 9) return pos + 1; // bottom row, left to right
+    if (pos <= 19) return N + (pos - 9); // right column, bottom to top
+    if (pos <= 29) return 2 * N + (20 - pos); // top row, right to left
+    return 3 * N + (40 - pos); // left column, top to bottom
+  };
 
   const TileContent = () => (
     <motion.div
@@ -107,7 +114,7 @@ export default function BoardTileComponent({ tile, isPlayerHere, category, posit
 
       {/* Tile Number */}
       <div className="absolute top-1 left-1 bg-black bg-opacity-80 text-white text-xs px-1.5 py-0.5 rounded-full font-bold min-w-[20px] text-center leading-none">
-        {tile.position + 1}
+        {getDisplayNumber()}
       </div>
 
       {/* Corner tile content */}

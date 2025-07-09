@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Heart, Trophy, X, Lightbulb, BookOpen, CheckCircle, Star, Target, Award, Play } from 'lucide-react';
 import { useGame } from '../../context/GameContext';
 import { lessonService } from '../../services/lessonService';
 import LoadingSpinner from '../Layout/LoadingSpinner';
-import ErrorBoundary from '../Layout/ErrorBoundary';
+import type { LessonData } from '../../services/lessonService';
 
 export default function LessonInterface() {
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
   const { gameState, completeLesson, loseHeart } = useGame();
   
-  const [lesson, setLesson] = useState<any>(null);
+  const [lesson, setLesson] = useState<LessonData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
@@ -28,28 +28,21 @@ export default function LessonInterface() {
     if (lessonId) {
       loadLesson();
     }
-  }, [lessonId]);
+  }, [lessonId, loadLesson]);
 
-  const loadLesson = async () => {
+  const loadLesson = useCallback(async () => {
     if (!lessonId) return;
-    
     setLoading(true);
     setError(null);
-    
     try {
       const lessonData = await lessonService.getLessonById(lessonId);
-      if (lessonData) {
-        setLesson(lessonData);
-      } else {
-        setError('Lesson not found');
-      }
-    } catch (err) {
-      console.error('Error loading lesson:', err);
-      setError('Failed to load lesson. Please try again.');
+      setLesson(lessonData);
+    } catch {
+      setError('Failed to load lesson');
     } finally {
       setLoading(false);
     }
-  };
+  }, [lessonId]);
 
   if (loading) {
     return (
@@ -88,7 +81,7 @@ export default function LessonInterface() {
   }
 
   // Generate 5+ pages of content for each lesson
-  const lessonPages = lesson.content_sections?.length > 0 ? lesson.content_sections.map((section: any, index: number) => ({
+  const lessonPages = lesson && lesson.content_sections?.length > 0 ? lesson.content_sections.map((section, index) => ({
     type: section.type || 'text',
     title: section.title,
     content: section.content,
@@ -211,7 +204,7 @@ export default function LessonInterface() {
     }
   };
 
-  const renderPageContent = (page: any) => {
+  const renderPageContent = (page: { [key: string]: unknown }) => {
     const baseContent = (
       <div className="text-center">
         <motion.div

@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useGame } from '../../context/GameContext';
+import { useState } from 'react';
 import { FinanceCategory } from '../../types';
 import EducationalTile from './EducationalTile';
 import TileModal from './TileModal';
@@ -23,9 +22,8 @@ interface BoardTile {
 }
 
 export default function EducationalBoard({ category }: EducationalBoardProps) {
-  const { gameState } = useGame();
   const [selectedTile, setSelectedTile] = useState<BoardTile | null>(null);
-  const [playerPosition, setPlayerPosition] = useState(0);
+  const [playerPosition] = useState(0);
 
   // Generate 50 tiles following the specified pattern
   const generateBoardTiles = (): BoardTile[] => {
@@ -177,7 +175,6 @@ export default function EducationalBoard({ category }: EducationalBoardProps) {
               key={tile.id}
               tile={tile}
               isPlayerHere={playerPosition === tile.position}
-              position="bottom"
               onTileClick={() => handleTileClick(tile)}
             />
           ))}
@@ -190,7 +187,6 @@ export default function EducationalBoard({ category }: EducationalBoardProps) {
               key={tile.id}
               tile={tile}
               isPlayerHere={playerPosition === tile.position}
-              position="right"
               onTileClick={() => handleTileClick(tile)}
             />
           ))}
@@ -203,7 +199,6 @@ export default function EducationalBoard({ category }: EducationalBoardProps) {
               key={tile.id}
               tile={tile}
               isPlayerHere={playerPosition === tile.position}
-              position="top"
               onTileClick={() => handleTileClick(tile)}
             />
           ))}
@@ -216,7 +211,6 @@ export default function EducationalBoard({ category }: EducationalBoardProps) {
               key={tile.id}
               tile={tile}
               isPlayerHere={playerPosition === tile.position}
-              position="left"
               onTileClick={() => handleTileClick(tile)}
             />
           ))}

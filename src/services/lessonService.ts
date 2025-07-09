@@ -9,8 +9,8 @@ export interface LessonData {
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   estimated_time: number;
   order_index: number;
-  content_sections: any[];
-  quiz_questions: any[];
+  content_sections: unknown[];
+  quiz_questions: unknown[];
   xp_reward: number;
   is_published: boolean;
   created_at: string;
@@ -260,7 +260,7 @@ class LessonService {
     }
   }
 
-  async getUserProgress(userId: string, category: FinanceCategory): Promise<any> {
+  async getUserProgress(userId: string, category: FinanceCategory): Promise<unknown> {
     try {
       const { data, error } = await supabase
         .from('user_progress')
@@ -279,106 +279,41 @@ class LessonService {
 
   // Fallback data for offline/error scenarios
   private getFallbackLessons(category: FinanceCategory): LessonData[] {
-    const fallbackLessons = {
-      spending: [
-        {
-          id: 'fallback-spending-1',
-          title: 'Budget Basics',
-          description: 'Learn to create and manage your first budget',
-          category: 'spending' as FinanceCategory,
-          difficulty: 'beginner' as const,
-          estimated_time: 10,
-          order_index: 1,
-          content_sections: [
-            {
-              id: 'section-1',
-              type: 'text',
-              title: 'What is a Budget?',
-              content: 'A budget is a plan for how you will spend your money.'
-            }
-          ],
-          quiz_questions: [
-            {
-              id: 'q1',
-              question: 'What is a budget?',
-              options: ['A spending plan', 'A savings account', 'A credit card', 'A loan'],
-              correctAnswer: 0,
-              explanation: 'A budget is a plan for how you will spend your money.'
-            }
-          ],
-          xp_reward: 100,
-          is_published: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ],
-      investing: [
-        {
-          id: 'fallback-investing-1',
-          title: 'Investment Basics',
-          description: 'Start your wealth building journey',
-          category: 'investing' as FinanceCategory,
-          difficulty: 'beginner' as const,
-          estimated_time: 15,
-          order_index: 1,
-          content_sections: [
-            {
-              id: 'section-1',
-              type: 'text',
-              title: 'What is Investing?',
-              content: 'Investing is putting money into assets with the expectation of generating income or profit.'
-            }
-          ],
-          quiz_questions: [
-            {
-              id: 'q1',
-              question: 'What is investing?',
-              options: ['Spending money', 'Putting money into assets for profit', 'Saving in a bank', 'Borrowing money'],
-              correctAnswer: 1,
-              explanation: 'Investing is putting money into assets with the expectation of generating income or profit.'
-            }
-          ],
-          xp_reward: 150,
-          is_published: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ],
-      saving: [
-        {
-          id: 'fallback-saving-1',
-          title: 'Savings Goals',
-          description: 'Set and achieve specific financial targets',
-          category: 'saving' as FinanceCategory,
-          difficulty: 'beginner' as const,
-          estimated_time: 10,
-          order_index: 1,
-          content_sections: [
-            {
-              id: 'section-1',
-              type: 'text',
-              title: 'Why Set Savings Goals?',
-              content: 'Savings goals give you direction and motivation.'
-            }
-          ],
-          quiz_questions: [
-            {
-              id: 'q1',
-              question: 'Why are savings goals important?',
-              options: ['They are not important', 'They provide direction and motivation', 'They cost money', 'They are too hard'],
-              correctAnswer: 1,
-              explanation: 'Savings goals give you direction and motivation to save money effectively.'
-            }
-          ],
-          xp_reward: 100,
-          is_published: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }
-      ]
-    };
-
-    return fallbackLessons[category] || [];
+    // Generate 40 lessons with IDs matching fallback board lesson_id
+    const lessons: LessonData[] = [];
+    for (let i = 0; i < 40; i++) {
+      lessons.push({
+        id: `fallback-${category}-lesson-${i}`,
+        title: `${category.charAt(0).toUpperCase() + category.slice(1)} Lesson ${i + 1}`,
+        description: `Learn about ${category} topic #${i + 1}`,
+        category,
+        difficulty: i < 10 ? 'beginner' : i < 25 ? 'intermediate' : 'advanced',
+        estimated_time: 10,
+        order_index: i,
+        content_sections: [
+          {
+            id: `section-${i}`,
+            type: 'text',
+            title: `Section ${i + 1}`,
+            content: `This is the content for ${category} lesson ${i + 1}.`
+          }
+        ],
+        quiz_questions: [
+          {
+            id: `q${i}`,
+            question: `What is the key point of lesson ${i + 1}?`,
+            options: ['Option 1', 'Option 2', 'Option 3', 'Option 4'],
+            correctAnswer: 0,
+            explanation: 'Option 1 is correct.'
+          }
+        ],
+        xp_reward: 100,
+        is_published: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+    return lessons;
   }
 
   private getFallbackBoard(category: FinanceCategory): BoardTileData[] {

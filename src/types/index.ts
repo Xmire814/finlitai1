@@ -105,6 +105,6 @@ export interface ChatMessage {
 // Global type declarations for Chatbase
 declare global {
   interface Window {
-    chatbase: any;
+    chatbase: unknown;
   }
 }

@@ -154,6 +154,8 @@ export default function PropertyCard({ tile, category, onClose, onLessonComplete
           <div className="flex space-x-3">
             {tile.lesson && !tile.isLocked ? (
               <div className="flex-1 space-y-2">
+                {/* Debug: Show lesson ID */}
+                <div className="text-xs text-gray-400 text-center mb-1">Lesson ID: {tile.lesson.id || 'N/A'}</div>
                 <Link
                   to={`/lesson/${tile.lesson.id}`}
                   className={`w-full bg-gradient-to-r ${getCategoryColor(category)} text-white py-3 px-4 rounded-lg font-semibold hover:opacity-90 transition-opacity flex items-center justify-center space-x-2`}

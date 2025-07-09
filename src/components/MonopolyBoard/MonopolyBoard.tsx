@@ -8,14 +8,20 @@ import PropertyCard from './PropertyCard';
 import ChanceCard from './ChanceCard';
 import GameStats from './GameStats';
 
+type ChanceCardType = {
+  title: string;
+  content: string;
+  reward: string;
+};
+
 interface MonopolyBoardProps {
   category: FinanceCategory;
 }
 
 export default function MonopolyBoard({ category }: MonopolyBoardProps) {
-  const { getBoardByCategory, gameState, movePlayer, completeLesson } = useGame();
+  const { getBoardByCategory, gameState, completeLesson } = useGame();
   const [showPropertyCard, setShowPropertyCard] = useState<BoardTile | null>(null);
-  const [showChanceCard, setShowChanceCard] = useState<any>(null);
+  const [showChanceCard, setShowChanceCard] = useState<ChanceCardType | null>(null);
   const [gameMessage, setGameMessage] = useState('');
 
   const tiles = getBoardByCategory(category);
@@ -48,7 +54,7 @@ export default function MonopolyBoard({ category }: MonopolyBoardProps) {
       setShowChanceCard(chanceCard);
       setGameMessage('You drew a Financial Tip card!');
     } else if (tile.type === 'community') {
-      const communityCard = generateCommunityCard(category);
+      const communityCard = generateCommunityCard();
       setShowChanceCard(communityCard);
       setGameMessage('Community financial wisdom!');
     } else if (tile.isLocked) {
@@ -85,7 +91,7 @@ export default function MonopolyBoard({ category }: MonopolyBoardProps) {
     return categoryCards[Math.floor(Math.random() * categoryCards.length)];
   };
 
-  const generateCommunityCard = (category: FinanceCategory) => {
+  const generateCommunityCard = () => {
     const cards = [
       { title: 'Community Success', content: 'A community member paid off $10,000 in debt using the debt snowball method!', reward: '+25 XP' },
       { title: 'Shared Wisdom', content: 'Community tip: Use cashback credit cards responsibly to earn 1-5% on purchases.', reward: '+30 XP' },
@@ -95,28 +101,15 @@ export default function MonopolyBoard({ category }: MonopolyBoardProps) {
     return cards[Math.floor(Math.random() * cards.length)];
   };
 
-  // Arrange tiles in EXACT Monopoly board layout as requested:
-  // 30 29 28 27 26 25 24 23 22 21 20
-  // 31                                19
-  // 32                                18
-  // 33                                17
-  // 34                                16
-  // 35                                15
-  // 36                                14
-  // 37                                13
-  // 38                                12
-  // 39                                11
-  // 40  ------------------------   10
-  //  1   2   3   4   5   6   7   8   9
-
-  // Bottom row: positions 1-9 (tiles 0-8)
-  const bottomRow = tiles.slice(0, 9);
-  // Right column: positions 10-20 (tiles 9-19)
-  const rightColumn = tiles.slice(9, 20);
-  // Top row: positions 21-30 (tiles 20-29) - reversed for proper display
-  const topRow = tiles.slice(20, 30).reverse();
-  // Left column: positions 31-40 (tiles 30-39) - reversed for proper display
-  const leftColumn = tiles.slice(30, 40).reverse();
+  // Arrange tiles in true clockwise order starting from upper-left (position 30)
+  // left column: 30 (upper-left) to 39 (bottom-left)
+  const leftColumn = tiles.slice(30, 40);
+  // bottom row: 0 (bottom-left) to 9 (bottom-right)
+  const bottomRow = tiles.slice(0, 10);
+  // right column: 10 (bottom-right) to 19 (top-right)
+  const rightColumn = tiles.slice(10, 20);
+  // top row: 20 (top-right) to 29 (upper-left, exclusive)
+  const topRow = tiles.slice(20, 30);
 
   return (
     <div className="max-w-7xl mx-auto p-4">
@@ -182,9 +175,35 @@ export default function MonopolyBoard({ category }: MonopolyBoardProps) {
 
             {/* Board Tiles Layout - EXACT Monopoly Style */}
             
+            {/* Left Column: Positions 31-40 */}
+            <div className="absolute top-20 left-4 bottom-20 flex flex-col justify-between items-start">
+              {leftColumn.map((tile) => (
+                <BoardTileComponent
+                  key={tile.id}
+                  tile={tile}
+                  isPlayerHere={playerPosition === tile.position}
+                  category={category}
+                  position="left"
+                  onTileClick={() => handleTileClick(tile)}
+                />
+              ))}
+            </div>
+
+            {/* Bottom Left Corner: Position 40 */}
+            <div className="absolute bottom-4 left-4">
+              <BoardTileComponent
+                key={tiles[39]?.id}
+                tile={tiles[39]}
+                isPlayerHere={playerPosition === 39}
+                category={category}
+                position="bottom"
+                onTileClick={() => handleTileClick(tiles[39])}
+              />
+            </div>
+
             {/* Bottom Row: Positions 1-9 */}
             <div className="absolute bottom-4 left-20 right-20 flex justify-between items-end">
-              {bottomRow.map((tile, index) => (
+              {bottomRow.map((tile) => (
                 <BoardTileComponent
                   key={tile.id}
                   tile={tile}
@@ -210,7 +229,7 @@ export default function MonopolyBoard({ category }: MonopolyBoardProps) {
 
             {/* Right Column: Positions 11-19 */}
             <div className="absolute top-20 right-4 bottom-20 flex flex-col justify-between items-end">
-              {rightColumn.slice(1, 10).map((tile) => (
+              {rightColumn.map((tile) => (
                 <BoardTileComponent
                   key={tile.id}
                   tile={tile}
@@ -257,32 +276,6 @@ export default function MonopolyBoard({ category }: MonopolyBoardProps) {
                 category={category}
                 position="top"
                 onTileClick={() => handleTileClick(tiles[30])}
-              />
-            </div>
-
-            {/* Left Column: Positions 32-39 (reversed) */}
-            <div className="absolute top-20 left-4 bottom-20 flex flex-col justify-between items-start">
-              {leftColumn.slice(1, 9).map((tile) => (
-                <BoardTileComponent
-                  key={tile.id}
-                  tile={tile}
-                  isPlayerHere={playerPosition === tile.position}
-                  category={category}
-                  position="left"
-                  onTileClick={() => handleTileClick(tile)}
-                />
-              ))}
-            </div>
-
-            {/* Bottom Left Corner: Position 40 */}
-            <div className="absolute bottom-4 left-4">
-              <BoardTileComponent
-                key={tiles[39]?.id}
-                tile={tiles[39]}
-                isPlayerHere={playerPosition === 39}
-                category={category}
-                position="bottom"
-                onTileClick={() => handleTileClick(tiles[39])}
               />
             </div>
 

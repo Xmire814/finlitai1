@@ -33,9 +33,13 @@ export default function LoginForm({ onToggleMode, onForgotPassword }: LoginFormP
 
     try {
       await signIn(email, password);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err);
-      setError(err.message || 'Failed to sign in');
+      if (err instanceof Error) {
+        setError(err.message || 'Failed to sign in');
+      } else {
+        setError('Failed to sign in');
+      }
     }
   };
 
