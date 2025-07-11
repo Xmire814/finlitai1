@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Play, Lock, CheckCircle, Users, Star, Zap, Home, Car, Crown, TrendingUp, Lightbulb, CreditCard, PiggyBank, BookOpen } from 'lucide-react';
+import { Play, Lock, CheckCircle, Gift, Users, Star, Zap, Home, Car, Plane, Crown, DollarSign, TrendingUp, Lightbulb, CreditCard, PiggyBank, BookOpen } from 'lucide-react';
 import { BoardTile, FinanceCategory } from '../../types';
 
 interface BoardTileProps {
@@ -9,9 +9,10 @@ interface BoardTileProps {
   category: FinanceCategory;
   position: 'top' | 'right' | 'bottom' | 'left';
   onTileClick?: () => void;
+  lessonNumber?: number;
 }
 
-export default function BoardTileComponent({ tile, isPlayerHere, category, position, onTileClick }: BoardTileProps) {
+export default function BoardTileComponent({ tile, isPlayerHere, category, position, onTileClick, lessonNumber }: BoardTileProps) {
   const getTileIcon = () => {
     switch (tile.type) {
       case 'corner':
@@ -36,7 +37,6 @@ export default function BoardTileComponent({ tile, isPlayerHere, category, posit
   };
 
   const getTileColor = () => {
-    // Corner tiles get special colors
     if (tile.type === 'corner') {
       if (tile.position === 0) return 'bg-gradient-to-br from-green-500 to-green-700 border-2 border-green-800 shadow-lg';
       if (tile.position === 9) return 'bg-gradient-to-br from-blue-500 to-blue-700 border-2 border-blue-800 shadow-lg';
@@ -47,24 +47,22 @@ export default function BoardTileComponent({ tile, isPlayerHere, category, posit
     if (tile.type === 'community') return 'bg-gradient-to-br from-cyan-400 to-blue-500 border-2 border-blue-600 shadow-md';
     if (tile.isCompleted) return 'bg-gradient-to-br from-green-400 to-green-600 border-2 border-green-700 shadow-md';
     if (tile.isLocked) return 'bg-gradient-to-br from-gray-300 to-gray-500 border-2 border-gray-600 shadow-sm';
-    
+
     const colorGroups = {
       spending: 'bg-gradient-to-br from-red-400 to-red-600 border-2 border-red-700 shadow-md',
       investing: 'bg-gradient-to-br from-green-400 to-green-600 border-2 border-green-700 shadow-md',
       saving: 'bg-gradient-to-br from-blue-400 to-blue-600 border-2 border-blue-700 shadow-md'
     };
-    
+
     return colorGroups[category] || 'bg-gradient-to-br from-white to-gray-100 border-2 border-gray-300 shadow-sm';
   };
 
-  const getRotationClass = () => '';
+  const isCorner = [0, 9, 19, 30].includes(tile.position);
 
-  const isCorner = [0, 10, 20, 30].includes(tile.position);
-  
   const getTileSize = () => {
-    if (isCorner) return 'w-20 h-20'; // Larger corner tiles
-    if (position === 'top' || position === 'bottom') return 'w-16 h-20'; // Regular tiles
-    return 'w-20 h-16'; // Regular tiles
+    if (isCorner) return 'w-20 h-20';
+    if (position === 'top' || position === 'bottom') return 'w-16 h-20';
+    return 'w-20 h-16';
   };
 
   const getCategoryColorStripe = () => {
@@ -79,21 +77,7 @@ export default function BoardTileComponent({ tile, isPlayerHere, category, posit
 
   const isClickable = tile.type === 'lesson' || tile.type === 'chance' || tile.type === 'community';
 
-  // Helper to get the display number for the tile (Monopoly style: bottom-left is 1, then clockwise)
-  const getDisplayNumber = () => {
-    // 0–9: bottom row, left to right (1–10)
-    // 10–19: right column, bottom to top (11–20)
-    // 20–29: top row, right to left (21–30)
-    // 30–39: left column, top to bottom (31–40)
-    const N = 10;
-    const pos = tile.position;
-    if (pos <= 9) return pos + 1; // bottom row, left to right
-    if (pos <= 19) return N + (pos - 9); // right column, bottom to top
-    if (pos <= 29) return 2 * N + (20 - pos); // top row, right to left
-    return 3 * N + (40 - pos); // left column, top to bottom
-  };
-
-  const TileContent = () => (
+  return (
     <motion.div
       whileHover={isClickable ? { scale: 1.05, y: -2 } : { scale: 1.02 }}
       whileTap={isClickable ? { scale: 0.95 } : {}}
@@ -101,23 +85,20 @@ export default function BoardTileComponent({ tile, isPlayerHere, category, posit
       className={`
         ${getTileSize()} ${getTileColor()} rounded-lg
         flex flex-col items-center justify-center p-2 text-center relative overflow-hidden
-        ${getRotationClass()}
         ${isPlayerHere ? 'ring-4 ring-yellow-400 ring-opacity-90 shadow-xl' : ''}
         ${isClickable ? 'hover:shadow-lg cursor-pointer transform transition-all duration-200' : 'transition-all duration-200'}
         m-1
       `}
     >
-      {/* Category Color Stripe for lessons */}
       {tile.type === 'lesson' && (
         <div className={`absolute top-0 left-0 right-0 h-2 ${getCategoryColorStripe()}`} />
       )}
+      {tile.type === 'lesson' && lessonNumber && (
+        <div className="absolute top-1 left-1 bg-black bg-opacity-80 text-white text-xs px-1.5 py-0.5 rounded-full font-bold min-w-[20px] text-center leading-none">
+          {lessonNumber}
+        </div>
+      )}
 
-      {/* Tile Number */}
-      <div className="absolute top-1 left-1 bg-black bg-opacity-80 text-white text-xs px-1.5 py-0.5 rounded-full font-bold min-w-[20px] text-center leading-none">
-        {getDisplayNumber()}
-      </div>
-
-      {/* Corner tile content */}
       {isCorner ? (
         <div className="flex flex-col items-center justify-center h-full text-white">
           <div className="mb-2">{getTileIcon()}</div>
@@ -130,27 +111,22 @@ export default function BoardTileComponent({ tile, isPlayerHere, category, posit
         </div>
       ) : (
         <>
-          {/* Icon */}
-          <div className={`
-            ${tile.isCompleted ? 'text-white' : 
+          <div className={
+            `${tile.isCompleted ? 'text-white' : 
               tile.isLocked ? 'text-gray-600' : 
               tile.type === 'chance' || tile.type === 'community' ? 'text-white' :
-              'text-white'}
-            mt-2 mb-1
-          `}>
+              'text-white'} mt-2 mb-1`
+          } style={{ transform: 'rotate(0deg)', zIndex: 1 }}>
             {getTileIcon()}
           </div>
-          
-          {/* Lesson title for non-corner tiles */}
           {tile.type === 'lesson' && (
-            <div className="text-xs font-semibold text-white text-center leading-tight px-1">
+            <div className="text-xs font-semibold text-white text-center leading-tight px-1" style={{ zIndex: 1 }}>
               {tile.title.split(' ').slice(0, 2).join(' ')}
             </div>
           )}
         </>
       )}
 
-      {/* Player indicator */}
       {isPlayerHere && (
         <motion.div
           initial={{ scale: 0 }}
@@ -165,7 +141,6 @@ export default function BoardTileComponent({ tile, isPlayerHere, category, posit
         </motion.div>
       )}
 
-      {/* Status indicators */}
       {tile.isCompleted && (
         <motion.div
           initial={{ scale: 0 }}
@@ -186,7 +161,6 @@ export default function BoardTileComponent({ tile, isPlayerHere, category, posit
         </motion.div>
       )}
 
-      {/* Available indicator */}
       {tile.type === 'lesson' && !tile.isLocked && !tile.isCompleted && (
         <motion.div
           animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }}
@@ -196,6 +170,4 @@ export default function BoardTileComponent({ tile, isPlayerHere, category, posit
       )}
     </motion.div>
   );
-
-  return <TileContent />;
 }
